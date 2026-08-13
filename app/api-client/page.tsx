@@ -24,6 +24,7 @@ import { CodegenDialog } from "@/components/api-client/CodegenDialog";
 import { buildTree, collectSubtreeIds } from "@/components/api-client/tree";
 import { resolveVars, substituteDraft } from "@/components/api-client/vars";
 import { saveSession, loadSession } from "@/components/api-client/session";
+import { useSplitHeight } from "@/components/api-client/useSplitHeight";
 import * as api from "@/components/api-client/api";
 
 /**
@@ -43,6 +44,10 @@ export default function ApiClientPage() {
   const [preview, setPreview] = useState<{ wire: WireEnvelope; missing: string[] } | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [codegenWire, setCodegenWire] = useState<WireEnvelope | null>(null);
+
+  // 请求区/响应区的高度拖动（只受控请求区，响应区 flex: 1 吃掉剩余）
+  const { containerRef, paneRef, splitterRef, height, onPointerDown, onPointerMove, onPointerUp } =
+    useSplitHeight();
 
   // 生效变量映射（激活环境 > 全局，仅 enabled）
   const resolvedVars = useMemo(
@@ -338,7 +343,7 @@ export default function ApiClientPage() {
             onNew={() => dispatch({ type: "NEW_TAB" })}
           />
 
-          <div className="apic-workbench">
+          <div className="apic-workbench" ref={containerRef}>
             <div className="apic-savebar">
               <button className="apic-btn-ghost" onClick={onSave} title="保存到集合">
                 {active.dirty ? "保存 ●" : "保存"}
@@ -358,13 +363,27 @@ export default function ApiClientPage() {
               {active.nodeId != null && <span className="apic-saved-hint">已关联集合</span>}
             </div>
 
-            <RequestPane
-              request={active.request}
-              sending={active.sending}
-              onPatch={patch}
-              onSend={send}
-              onCancel={cancel}
+            <div className="apic-reqwrap" ref={paneRef} style={{ height }}>
+              <RequestPane
+                request={active.request}
+                sending={active.sending}
+                onPatch={patch}
+                onSend={send}
+                onCancel={cancel}
+              />
+            </div>
+
+            <div
+              className="apic-splitter"
+              ref={splitterRef}
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label="拖动调整请求区与响应区高度"
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
             />
+
             <ResponsePane response={active.response} sending={active.sending} />
           </div>
         </div>

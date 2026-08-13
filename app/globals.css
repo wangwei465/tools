@@ -1172,7 +1172,17 @@ code, pre {
 .apic-workbench { flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: hidden; }
 
 /* 请求区 */
-.apic-request { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+/* 请求区外壳：高度由拖动受控，内部 RequestPane 填满 */
+.apic-reqwrap { flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.apic-request { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
+
+/* 请求区与响应区之间的拖动分隔条。touch-action: none 防止触屏拖动被滚动手势抢走 */
+.apic-splitter {
+  flex-shrink: 0; height: 8px; margin: -1px 0; cursor: row-resize;
+  border-radius: 4px; background: transparent; touch-action: none; transition: background .12s;
+}
+.apic-splitter:hover { background: rgba(91, 124, 250, 0.35); }
+.apic-splitter:active { background: var(--accent); }
 .apic-reqline { display: flex; gap: 8px; }
 .apic-method {
   padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border);
@@ -1199,7 +1209,8 @@ code, pre {
 }
 .apic-subtabs button:hover { color: var(--text); }
 .apic-subtabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
-.apic-subpane { max-height: 34vh; overflow: auto; padding-top: 8px; }
+/* 参数页签内容区：高度随请求区拖动伸缩（原为 max-height: 34vh 固定） */
+.apic-subpane { flex: 1; min-height: 0; overflow: auto; padding-top: 8px; display: flex; flex-direction: column; }
 
 /* 编辑器工具条（请求 Body 美化 / 响应 Body 折叠·复制，共用） */
 .apic-cm-bar {
@@ -1243,12 +1254,18 @@ code, pre {
 .apic-file-name { color: var(--text); }
 
 /* Body */
-.apic-body { display: flex; flex-direction: column; gap: 10px; }
-.apic-body-types { display: flex; flex-wrap: wrap; gap: 14px; }
+.apic-body { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
+.apic-body-types { display: flex; flex-wrap: wrap; gap: 14px; flex-shrink: 0; }
 .apic-radio { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--text-muted); cursor: pointer; }
 .apic-radio input { accent-color: var(--accent); }
 .apic-body-none { padding: 16px; color: var(--text-muted); font-size: 12.5px; }
-.apic-body-cm { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+/* JSON 编辑器填满请求区（原写死 220px，拖动放大容器时不会跟着变） */
+.apic-body-cm {
+  border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+}
+.apic-body-cm > *:not(.apic-cm-bar) { flex: 1; min-height: 0; }
+.apic-body-cm .cm-editor { height: 100%; }
 
 /* Auth */
 .apic-auth { display: flex; flex-direction: column; gap: 10px; max-width: 460px; }
@@ -1285,8 +1302,35 @@ code, pre {
   white-space: pre-wrap; word-break: break-all; padding: 4px 0;
 }
 
-/* 键值只读视图（响应 headers / cookies） */
-.apic-kv-view { display: flex; flex-direction: column; }
+/* JSONPath 视图（响应区侧）。UI 与编码转换侧各自实现——components 模块间不互相引用 */
+.apic-jp { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }
+.apic-jp-bar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.apic-jp-input {
+  flex: 1; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg-input); color: var(--text);
+  font-family: "JetBrains Mono", Consolas, monospace; font-size: 12.5px;
+}
+.apic-jp-input:focus { outline: none; border-color: var(--accent); }
+.apic-jp-error { color: var(--error); font-size: 12.5px; flex-shrink: 0; }
+/* 零命中：普通提示，不套用错误配色 */
+.apic-jp-empty { color: var(--text-muted); font-size: 12.5px; flex-shrink: 0; }
+.apic-jp-summary { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
+.apic-jp-list { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+.apic-jp-row {
+  display: flex; gap: 10px; padding: 4px 0; font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.apic-jp-row .apic-jp-path {
+  flex-shrink: 0; width: 38%; text-align: left; padding: 0; border: none; background: transparent;
+  color: var(--accent); font-family: "JetBrains Mono", Consolas, monospace;
+  word-break: break-all; cursor: pointer;
+}
+.apic-jp-row .apic-jp-path:hover { text-decoration: underline; }
+.apic-jp-val {
+  color: var(--text); font-family: "JetBrains Mono", Consolas, monospace; word-break: break-all;
+}
+
+/* 键值只读视图（响应 headers / cookies） */.apic-kv-view { display: flex; flex-direction: column; }
 .apic-kv-viewrow { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
 .apic-kv-vk { flex-shrink: 0; min-width: 180px; color: var(--text-muted); font-family: "JetBrains Mono", Consolas, monospace; word-break: break-all; }
 .apic-kv-vv { color: var(--text); word-break: break-all; }
@@ -1988,4 +2032,25 @@ code, pre {
 .conv-rx-idx { color: var(--text-muted); width: 36px; }
 .conv-rx-pos { color: var(--text-muted); white-space: nowrap; }
 .conv-rx-group { display: block; }
+
+/* JSONPath 提取器（编码转换侧） */
+.conv-jp-summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  font-size: 12px; color: var(--text-muted);
+}
+/* 零命中用普通提示样式，与 .conv-error 的错误样式区分开 */
+.conv-jp-empty {
+  padding: 10px 12px; border-radius: 8px; border: 1px dashed var(--border);
+  background: var(--bg-input); color: var(--text-muted); font-size: 12.5px;
+}
+.conv-jp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: fixed; }
+.conv-jp-table th {
+  text-align: left; padding: 6px 8px; font-size: 11px; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--border);
+}
+.conv-jp-table td { padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: top; word-break: break-all; }
+.conv-jp-idx { color: var(--text-muted); width: 36px; }
+.conv-jp-path { color: var(--accent); width: 38%; }
+.conv-jp-val { color: var(--text); }
+.conv-jp-act { width: 88px; }
 

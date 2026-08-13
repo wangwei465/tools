@@ -8,8 +8,9 @@ import type { EditorView } from "@codemirror/view";
 import type { ResponseState } from "./types";
 import { cmTheme } from "./cmTheme";
 import { useFlash } from "./useFlash";
+import { evalJsonPath, formatHitValue } from "@/lib/convert/jsonpath";
 
-type RespTab = "body" | "headers" | "cookies";
+type RespTab = "body" | "headers" | "cookies" | "jsonpath";
 
 /** 状态码配色分类。 */
 function statusClass(status: number): string {
@@ -62,12 +63,28 @@ interface Props {
 export function ResponsePane({ response, sending }: Props) {
   const [tab, setTab] = useState<RespTab>("body");
   const [folded, setFolded] = useState(false);
+  const [jsonPath, setJsonPath] = useState("$");
   const [hint, flash] = useFlash();
   const viewRef = useRef<EditorView | null>(null);
   const extensions = useMemo(() => [cmTheme, json()], []);
 
+  // isJson 要参与下面的 hooks，故基于可空的 response 前置计算（须在 early return 之前）
+  const contentType = (response?.contentType ?? "").toLowerCase();
+  const isJson = contentType.includes("json");
+
   // 新响应到达 → 编辑器内容重建，折叠态失效需复位
   useEffect(() => setFolded(false), [response?.body]);
+
+  // 响应变为非 JSON 时 JSONPath 页签不可用，退回 Body，避免停留在空视图
+  useEffect(() => {
+    if (!isJson && tab === "jsonpath") setTab("body");
+  }, [isJson, tab]);
+
+  // 求值目标始终是当前响应体：response.body 一变即对新响应重新求值，不残留上次结果
+  const jpResult = useMemo(() => {
+    if (!isJson || !response?.body || !jsonPath.trim()) return null;
+    return evalJsonPath(response.body, jsonPath);
+  }, [isJson, response?.body, jsonPath]);
 
   if (sending) return <div className="apic-response apic-resp-empty">请求中…</div>;
   if (!response)
@@ -75,18 +92,27 @@ export function ResponsePane({ response, sending }: Props) {
   if (response.error)
     return <div className="apic-response apic-resp-error">✗ {response.error}</div>;
 
-  const ct = response.contentType.toLowerCase();
-  const isJson = ct.includes("json");
-  const binary = isBinary(ct);
+  const binary = isBinary(contentType);
   const cookies = parseCookies(response.headers);
   const headerEntries = Object.entries(response.headers);
   const prettyBody = isJson ? prettyJson(response.body) : response.body;
+  const jpHits = jpResult?.ok ? jpResult.value!.hits : [];
 
   /** 复制展示中的内容（美化后文本），保证「所见即所复制」。 */
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(prettyBody);
       flash("已复制 ✓");
+    } catch {
+      flash("复制失败");
+    }
+  };
+
+  /** 复制单条命中的路径，便于在别处复用该定位。 */
+  const copyPath = async (p: string) => {
+    try {
+      await navigator.clipboard.writeText(p);
+      flash("已复制路径 ✓");
     } catch {
       flash("复制失败");
     }
@@ -121,6 +147,14 @@ export function ResponsePane({ response, sending }: Props) {
         </button>
         <button className={tab === "cookies" ? "active" : ""} onClick={() => setTab("cookies")}>
           Cookies{cookies.length ? ` (${cookies.length})` : ""}
+        </button>
+        <button
+          className={tab === "jsonpath" ? "active" : ""}
+          onClick={() => setTab("jsonpath")}
+          disabled={!isJson}
+          title={isJson ? "对当前响应体求值" : "仅 JSON 响应可用"}
+        >
+          JSONPath
         </button>
       </div>
 
@@ -186,6 +220,51 @@ export function ResponsePane({ response, sending }: Props) {
           ) : (
             <div className="apic-resp-empty">无 Cookie</div>
           ))}
+
+        {tab === "jsonpath" && (
+          <div className="apic-jp">
+            <div className="apic-jp-bar">
+              <input
+                className="apic-jp-input"
+                value={jsonPath}
+                onChange={(e) => setJsonPath(e.target.value)}
+                placeholder="$..id"
+                spellCheck={false}
+                aria-label="JSONPath 表达式"
+              />
+              {hint && <span className="apic-cm-hint">{hint}</span>}
+            </div>
+
+            {jpResult && !jpResult.ok && <div className="apic-jp-error">{jpResult.error}</div>}
+
+            {jpResult?.ok && jpHits.length === 0 && (
+              <div className="apic-jp-empty">无匹配——表达式合法，但该路径在当前响应中不存在。</div>
+            )}
+
+            {jpHits.length > 0 && (
+              <>
+                <div className="apic-jp-summary">
+                  命中 {jpResult!.value!.total} 处
+                  {jpResult!.value!.truncated && `（已达上限，仅展示前 ${jpHits.length} 条）`}
+                </div>
+                <div className="apic-jp-list">
+                  {jpHits.map((h, i) => (
+                    <div className="apic-jp-row" key={i}>
+                      <button
+                        className="apic-jp-path"
+                        onClick={() => copyPath(h.path)}
+                        title="点击复制该路径"
+                      >
+                        {h.path}
+                      </button>
+                      <span className="apic-jp-val">{formatHitValue(h.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -69,7 +69,7 @@ export function BodyEditor({ body, onChange }: Props) {
             onChange={(v) => onChange({ raw: v })}
             extensions={extensions}
             theme="dark"
-            height="220px"
+            height="100%"
             basicSetup={{
               lineNumbers: true,
               foldGutter: true,

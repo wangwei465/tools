@@ -8,6 +8,7 @@ import { DateTimeConverter } from "@/components/convert/DateTimeConverter";
 import { UuidConverter } from "@/components/convert/UuidConverter";
 import { JwtConverter } from "@/components/convert/JwtConverter";
 import { RegexConverter } from "@/components/convert/RegexConverter";
+import { JsonPathConverter } from "@/components/convert/JsonPathConverter";
 
 /** 转换器注册表：新增转换器只需在此追加一条并提供组件。 */
 const TABS = [
@@ -18,12 +19,13 @@ const TABS = [
   { key: "uuid", label: "UUID", Comp: UuidConverter },
   { key: "jwt", label: "JWT", Comp: JwtConverter },
   { key: "regex", label: "正则", Comp: RegexConverter },
+  { key: "jsonpath", label: "JSONPath", Comp: JsonPathConverter },
 ] as const;
 
 /**
  * 编码转换工具。
  *
- * 单页多标签容器：七个纯前端转换器，全部客户端计算、不落库、不发网络请求。
+ * 单页多标签容器：八个纯前端转换器，全部客户端计算、不落库、不发网络请求。
  * 切换标签仅换渲染的转换器，各转换器状态互不干扰。
  */
 export default function ConvertPage() {
