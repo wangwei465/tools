@@ -1,0 +1,35 @@
+{
+  "name": "tools",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@codemirror/lang-json": "^6.0.1",
+    "@codemirror/lint": "^6.8.1",
+    "@codemirror/state": "^6.4.1",
+    "@codemirror/view": "^6.28.0",
+    "@uiw/react-codemirror": "^4.23.0",
+    "better-sqlite3": "^11.3.0",
+    "diff": "^5.2.0",
+    "ioredis": "^5.11.1",
+    "js-yaml": "^5.2.2",
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/diff": "^5.2.1",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}
