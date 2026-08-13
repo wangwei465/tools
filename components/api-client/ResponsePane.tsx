@@ -1,10 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { json } from "@codemirror/lang-json";
+import { foldAll, unfoldAll } from "@codemirror/language";
+import type { EditorView } from "@codemirror/view";
 import type { ResponseState } from "./types";
 import { cmTheme } from "./cmTheme";
+import { useFlash } from "./useFlash";
 
 type RespTab = "body" | "headers" | "cookies";
 
@@ -58,7 +61,13 @@ interface Props {
 /** 响应面板：状态摘要 + Body（按 content-type 分流）/ Headers / Cookies。 */
 export function ResponsePane({ response, sending }: Props) {
   const [tab, setTab] = useState<RespTab>("body");
+  const [folded, setFolded] = useState(false);
+  const [hint, flash] = useFlash();
+  const viewRef = useRef<EditorView | null>(null);
   const extensions = useMemo(() => [cmTheme, json()], []);
+
+  // 新响应到达 → 编辑器内容重建，折叠态失效需复位
+  useEffect(() => setFolded(false), [response?.body]);
 
   if (sending) return <div className="apic-response apic-resp-empty">请求中…</div>;
   if (!response)
@@ -71,6 +80,26 @@ export function ResponsePane({ response, sending }: Props) {
   const binary = isBinary(ct);
   const cookies = parseCookies(response.headers);
   const headerEntries = Object.entries(response.headers);
+  const prettyBody = isJson ? prettyJson(response.body) : response.body;
+
+  /** 复制展示中的内容（美化后文本），保证「所见即所复制」。 */
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(prettyBody);
+      flash("已复制 ✓");
+    } catch {
+      flash("复制失败");
+    }
+  };
+
+  /** 全部折叠 / 全部展开 JSON 层级。 */
+  const toggleFold = () => {
+    const view = viewRef.current;
+    if (!view) return;
+    if (folded) unfoldAll(view);
+    else foldAll(view);
+    setFolded(!folded);
+  };
 
   return (
     <div className="apic-response">
@@ -103,12 +132,24 @@ export function ResponsePane({ response, sending }: Props) {
             </div>
           ) : isJson ? (
             <div className="apic-resp-cm">
+              <div className="apic-cm-bar">
+                {hint && <span className="apic-cm-hint">{hint}</span>}
+                <button className="apic-tool-btn" onClick={toggleFold} title="折叠 / 展开所有层级">
+                  {folded ? "展开" : "折叠"}
+                </button>
+                <button className="apic-tool-btn" onClick={copy} title="复制响应 JSON">
+                  复制
+                </button>
+              </div>
               <CodeMirror
-                value={prettyJson(response.body)}
+                value={prettyBody}
                 extensions={extensions}
                 theme="dark"
                 height="100%"
                 editable={false}
+                onCreateEditor={(view) => {
+                  viewRef.current = view;
+                }}
                 basicSetup={{
                   lineNumbers: true,
                   foldGutter: true,

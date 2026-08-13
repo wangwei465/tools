@@ -8,6 +8,7 @@ import type { BodyState, BodyType, FormField } from "./types";
 import { emptyFormField } from "./types";
 import { KVTable } from "./KVTable";
 import { cmTheme } from "./cmTheme";
+import { useFlash } from "./useFlash";
 
 const BODY_TYPES: { key: BodyType; label: string }[] = [
   { key: "none", label: "none" },
@@ -24,6 +25,18 @@ interface Props {
 /** Body 编辑：类型单选 + 对应编辑区。 */
 export function BodyEditor({ body, onChange }: Props) {
   const extensions = useMemo(() => [cmTheme, json(), linter(jsonParseLinter())], []);
+  const [hint, flash] = useFlash();
+
+  /** 美化：解析后按 2 空格缩进回写；非法 JSON 保留原文并提示。 */
+  const beautify = () => {
+    if (!body.raw.trim()) return;
+    try {
+      onChange({ raw: JSON.stringify(JSON.parse(body.raw), null, 2) });
+      flash("已美化 ✓");
+    } catch {
+      flash("JSON 语法错误");
+    }
+  };
 
   return (
     <div className="apic-body">
@@ -45,6 +58,12 @@ export function BodyEditor({ body, onChange }: Props) {
 
       {body.type === "raw" && (
         <div className="apic-body-cm">
+          <div className="apic-cm-bar">
+            {hint && <span className="apic-cm-hint">{hint}</span>}
+            <button className="apic-tool-btn" onClick={beautify} title="格式化 JSON">
+              美化
+            </button>
+          </div>
           <CodeMirror
             value={body.raw}
             onChange={(v) => onChange({ raw: v })}

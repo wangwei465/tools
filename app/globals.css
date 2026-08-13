@@ -1201,6 +1201,18 @@ code, pre {
 .apic-subtabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
 .apic-subpane { max-height: 34vh; overflow: auto; padding-top: 8px; }
 
+/* 编辑器工具条（请求 Body 美化 / 响应 Body 折叠·复制，共用） */
+.apic-cm-bar {
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-shrink: 0;
+  padding: 4px 8px; background: var(--bg-surface); border-bottom: 1px solid var(--border);
+}
+.apic-cm-hint { font-size: 11.5px; color: var(--text-muted); }
+.apic-tool-btn {
+  padding: 3px 10px; border-radius: 5px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-muted); font-size: 11.5px;
+}
+.apic-tool-btn:hover { color: var(--text); border-color: var(--accent); }
+
 /* 键值表格 */
 .apic-kv { display: flex; flex-direction: column; gap: 6px; }
 .apic-kv-row { display: flex; align-items: center; gap: 8px; }
@@ -1264,9 +1276,9 @@ code, pre {
 .apic-code.s5 { color: var(--error); }
 .apic-resp-meta { font-size: 12px; color: var(--text-muted); }
 .apic-resp-pane { flex: 1; min-height: 0; overflow: auto; }
-/* 响应 Body 的 CodeMirror 撑满整个结果区（消除下方空白） */
-.apic-resp-cm { height: 100%; }
-.apic-resp-cm > * { height: 100%; }
+/* 响应 Body 的 CodeMirror 撑满整个结果区（消除下方空白），工具条固定在顶部 */
+.apic-resp-cm { height: 100%; display: flex; flex-direction: column; }
+.apic-resp-cm > *:not(.apic-cm-bar) { flex: 1; min-height: 0; }
 .apic-resp-cm .cm-editor { height: 100%; }
 .apic-resp-text {
   font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px; color: var(--text);
