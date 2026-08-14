@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createHash } from "node:crypto";
+import { hashHex } from "@/lib/crypto/hash";
 
 /**
  * 生成签名：md5(timestamp + appId + appSecret) 转小写。
@@ -10,6 +10,7 @@ import { createHash } from "node:crypto";
  *
  * 为何在服务端算：浏览器 Web Crypto (SubtleCrypto) 不支持 MD5，
  * 服务端用 Node 内置 crypto 计算可零依赖且保证算法正确。
+ * MD5 实现复用 lib/crypto——全站摘要计算只此一份。
  * appSecret 仅用于本次计算，不落库、不记录。
  */
 export async function POST(request: Request) {
@@ -33,7 +34,10 @@ export async function POST(request: Request) {
 
   // 拼接顺序即签名规则：时间戳 + appId + appSecret
   const raw = `${timestamp}${appId}${appSecret}`;
-  const signature = createHash("md5").update(raw, "utf8").digest("hex").toLowerCase();
+  const result = hashHex("md5", raw);
+  if (!result.ok) {
+    return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+  }
 
-  return NextResponse.json({ ok: true, signature });
+  return NextResponse.json({ ok: true, signature: result.value });
 }

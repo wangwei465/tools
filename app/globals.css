@@ -2054,3 +2054,109 @@ code, pre {
 .conv-jp-val { color: var(--text); }
 .conv-jp-act { width: 88px; }
 
+
+/* ============================================================
+   加解密（app/crypto/page.tsx + components/crypto/*）
+   ============================================================ */
+.crypto-page {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 20px; height: calc(100vh - 48px); overflow: hidden;
+}
+.crypto-header { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+.crypto-title { font-size: 16px; font-weight: 600; color: var(--text); }
+.crypto-desc { font-size: 12.5px; color: var(--text-muted); }
+
+/* 面板标签栏 */
+.crypto-tabs {
+  display: flex; gap: 4px; flex-shrink: 0; overflow-x: auto;
+  border-bottom: 1px solid var(--border); padding-bottom: 2px;
+}
+.crypto-tab {
+  padding: 6px 16px; border: 1px solid transparent; border-radius: 7px;
+  background: transparent; color: var(--text-muted); font-size: 13px; white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+.crypto-tab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.crypto-tab.active { color: #fff; background: var(--accent); font-weight: 500; }
+
+.crypto-body { flex: 1; min-height: 0; overflow: auto; }
+
+/* 面板统一外框 */
+.crypto-frame { display: flex; flex-direction: column; gap: 12px; max-width: 1000px; }
+.crypto-frame-head { display: flex; flex-direction: column; gap: 3px; }
+.crypto-frame-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.crypto-frame-desc { font-size: 12px; color: var(--text-muted); }
+
+/* 工具条：算法/模式/编码选择 + 执行按钮 */
+.crypto-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.crypto-inline-field { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); }
+.crypto-select {
+  padding: 5px 8px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg-input); color: var(--text); font-size: 12.5px;
+}
+.crypto-select:focus { outline: none; border-color: var(--accent); }
+.crypto-seg { display: flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.crypto-seg-btn {
+  padding: 5px 14px; border: none; background: transparent; color: var(--text-muted);
+  font-size: 12.5px; white-space: nowrap; transition: background 0.15s, color 0.15s;
+}
+.crypto-seg-btn:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.crypto-seg-btn.active { background: var(--accent); color: #fff; font-weight: 500; }
+
+/* 字段：标签行 + 输入 */
+.crypto-field { display: flex; flex-direction: column; gap: 6px; }
+.crypto-labelrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.crypto-labelrow-actions { display: flex; align-items: center; gap: 6px; }
+.crypto-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.crypto-input {
+  padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg-input); color: var(--text); font-size: 13px; width: 100%;
+}
+.crypto-input:focus { outline: none; border-color: var(--accent); }
+.crypto-input-sm { width: 92px; }
+.crypto-mono { font-family: "JetBrains Mono", Consolas, monospace; }
+.crypto-textarea {
+  min-height: 110px; resize: vertical; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg-input); color: var(--text);
+  font-family: "JetBrains Mono", Consolas, monospace; font-size: 12.5px; line-height: 1.5; width: 100%;
+}
+.crypto-textarea:focus { outline: none; border-color: var(--accent); }
+.crypto-textarea[readonly] { color: var(--text-muted); }
+
+/* 明文/密文双栏 */
+.crypto-io { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.crypto-io-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+/* 按钮 */
+.crypto-btn-primary {
+  padding: 6px 18px; border-radius: 6px; border: 1px solid var(--accent);
+  background: var(--accent); color: #fff; font-size: 12.5px; font-weight: 500;
+}
+.crypto-btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.crypto-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+.crypto-copy {
+  padding: 3px 12px; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--text); font-size: 12px; transition: border-color 0.15s;
+}
+.crypto-copy:hover:not(:disabled) { border-color: var(--accent); }
+.crypto-copy:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* 错误条 / 风险提示 / 验签结论 */
+.crypto-error {
+  padding: 6px 10px; border-radius: 6px; background: rgba(255,85,85,0.08);
+  border: 1px solid rgba(255,85,85,0.2); color: var(--error); font-size: 12.5px;
+}
+.crypto-notice {
+  padding: 6px 10px; border-radius: 6px; background: rgba(245,166,35,0.08);
+  border: 1px solid rgba(245,166,35,0.25); color: var(--warn); font-size: 12px;
+}
+.crypto-notice strong { color: var(--warn); }
+.crypto-verdict {
+  padding: 6px 10px; border-radius: 6px; font-size: 12.5px; font-weight: 500;
+}
+.crypto-verdict.pass {
+  background: rgba(62,207,142,0.08); border: 1px solid rgba(62,207,142,0.25); color: var(--success);
+}
+.crypto-verdict.fail {
+  background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.25); color: var(--warn);
+}

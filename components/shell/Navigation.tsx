@@ -10,6 +10,7 @@ const TOOLS = [
   { href: "/api-client", label: "接口调试" },
   { href: "/redis", label: "Redis管理" },
   { href: "/convert", label: "编码转换" },
+  { href: "/crypto", label: "加解密" },
   // 未来工具在此注册
 ] as const;
 
