@@ -11,6 +11,15 @@ import type {
   RedisConnType,
   RedisNode,
 } from "@/lib/redis/types";
+import {
+  MASKED_SECRET,
+  parseExtra,
+  type DatastoreConnection,
+  type DatastoreConnectionInput,
+  type DatastoreEnv,
+  type DatastoreMode,
+  type DatastoreType,
+} from "@/lib/datastore/types";
 
 export interface TokenConfig {
   headerName: string;
@@ -52,6 +61,10 @@ function getDb(): Database.Database {
  * 数据库迁移。
  * v0/v1：request_records 唯一键为 (url, method)
  * v2：唯一键改为 (url, method, name)，支持同 URL 多个命名记录。
+ *
+ * 纯新增表（redis_connections / datastore_connections 等）走上方的
+ * `CREATE TABLE IF NOT EXISTS` 块即可，对新库与老库都幂等，无需版本步进；
+ * user_version 只用于需要重建或改写既有表的破坏性迁移。
  */
 function migrate(instance: Database.Database): void {
   // 建基础表（首次）
@@ -121,6 +134,23 @@ function migrate(instance: Database.Database): void {
       db          INTEGER NOT NULL DEFAULT 0,
       env         TEXT NOT NULL DEFAULT 'local',      -- local | test | prod
       mode        TEXT NOT NULL DEFAULT 'rw',         -- rw | readonly
+      created_at  TEXT NOT NULL,
+      updated_at  TEXT NOT NULL
+    );
+
+    -- 数据源·连接配置（datastore-connection）：ES 与 MongoDB 共用一张表，
+    -- type 判别；两者差异化参数（ES 的 api_key / Mongo 的 auth_db）存 extra_json。
+    -- 凭证明文存（本地自用），列表接口按 MASKED_SECRET 脱敏后返回。
+    CREATE TABLE IF NOT EXISTS datastore_connections (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      name        TEXT NOT NULL,
+      type        TEXT NOT NULL DEFAULT 'es',      -- es | mongo
+      uri         TEXT NOT NULL DEFAULT '',        -- ES base URL / Mongo 连接串
+      username    TEXT NOT NULL DEFAULT '',
+      password    TEXT NOT NULL DEFAULT '',
+      extra_json  TEXT NOT NULL DEFAULT '{}',      -- DatastoreExtra JSON
+      env         TEXT NOT NULL DEFAULT 'local',   -- local | test | prod
+      mode        TEXT NOT NULL DEFAULT 'rw',      -- rw | readonly
       created_at  TEXT NOT NULL,
       updated_at  TEXT NOT NULL
     );
@@ -817,4 +847,151 @@ export function updateRedisConnection(id: number, input: RedisConnectionInput): 
 /** 删除连接。 */
 export function deleteRedisConnection(id: number): void {
   getDb().prepare("DELETE FROM redis_connections WHERE id = ?").run(id);
+}
+
+/* ─── 数据源·连接配置（datastore_connections）──────────────── */
+
+const DS_COLUMNS =
+  "id, name, type, uri, username, password, extra_json, env, mode, created_at, updated_at";
+
+function mapDatastoreConn(r: Record<string, unknown>): DatastoreConnection {
+  return {
+    id: Number(r.id),
+    name: r.name as string,
+    type: r.type as DatastoreType,
+    uri: (r.uri as string) ?? "",
+    username: (r.username as string) ?? "",
+    password: (r.password as string) ?? "",
+    extraJson: (r.extra_json as string) || "{}",
+    env: r.env as DatastoreEnv,
+    mode: r.mode as DatastoreMode,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
+  };
+}
+
+/**
+ * 凭证脱敏：非空的密码与 API Key 替换为占位符。
+ * 供列表 / 单条的对外返回使用；服务端自身建连一律走 getDatastoreConnection。
+ */
+export function maskDatastoreConn(conn: DatastoreConnection): DatastoreConnection {
+  const extra = parseExtra(conn.extraJson);
+  const maskedExtra = extra.apiKey ? { ...extra, apiKey: MASKED_SECRET } : extra;
+  return {
+    ...conn,
+    password: conn.password ? MASKED_SECRET : "",
+    extraJson: JSON.stringify(maskedExtra),
+  };
+}
+
+/** 全部连接配置（凭证已脱敏，供前端展示）。 */
+export function listDatastoreConnections(): DatastoreConnection[] {
+  const rows = getDb()
+    .prepare(`SELECT ${DS_COLUMNS} FROM datastore_connections ORDER BY id`)
+    .all() as Array<Record<string, unknown>>;
+  return rows.map((r) => maskDatastoreConn(mapDatastoreConn(r)));
+}
+
+/** 按 id 读取单个连接（含明文凭证，仅服务端建连使用）。 */
+export function getDatastoreConnection(id: number): DatastoreConnection | null {
+  const r = getDb()
+    .prepare(`SELECT ${DS_COLUMNS} FROM datastore_connections WHERE id = ?`)
+    .get(id) as Record<string, unknown> | undefined;
+  return r ? mapDatastoreConn(r) : null;
+}
+
+/** 生产环境默认只读；其余默认读写（与 redis_connections 同语义）。 */
+function defaultDatastoreMode(env: DatastoreEnv, mode?: DatastoreMode): DatastoreMode {
+  if (mode) return mode;
+  return env === "prod" ? "readonly" : "rw";
+}
+
+function validateDatastoreInput(input: DatastoreConnectionInput): string {
+  const name = input.name?.trim() ?? "";
+  if (!name) throw new Error("连接名称不能为空");
+  if (!input.uri?.trim()) {
+    throw new Error(input.type === "mongo" ? "连接串不能为空" : "服务地址不能为空");
+  }
+  return name;
+}
+
+/**
+ * 保留未修改的凭证：入参仍为脱敏占位符时沿用旧值。
+ * 前端拿到的是脱敏后的连接，直接回填表单再保存不应把凭证写坏。
+ */
+function keepMaskedSecrets(
+  input: DatastoreConnectionInput,
+  current: DatastoreConnection
+): { password: string; extraJson: string } {
+  const password = input.password === MASKED_SECRET ? current.password : input.password ?? "";
+
+  const incoming = parseExtra(input.extraJson);
+  if (incoming.apiKey === MASKED_SECRET) {
+    incoming.apiKey = parseExtra(current.extraJson).apiKey ?? "";
+  }
+  return { password, extraJson: JSON.stringify(incoming) };
+}
+
+/** 新建连接（返回值凭证已脱敏）。 */
+export function createDatastoreConnection(
+  input: DatastoreConnectionInput
+): DatastoreConnection {
+  const name = validateDatastoreInput(input);
+  const now = new Date().toISOString();
+  const info = getDb()
+    .prepare(
+      `INSERT INTO datastore_connections
+         (name, type, uri, username, password, extra_json, env, mode, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      name,
+      input.type,
+      input.uri.trim(),
+      input.username ?? "",
+      input.password === MASKED_SECRET ? "" : input.password ?? "",
+      JSON.stringify(parseExtra(input.extraJson)),
+      input.env,
+      defaultDatastoreMode(input.env, input.mode),
+      now,
+      now
+    );
+  return maskDatastoreConn(getDatastoreConnection(Number(info.lastInsertRowid))!);
+}
+
+/** 编辑连接（全量覆盖可编辑字段；返回值凭证已脱敏）。 */
+export function updateDatastoreConnection(
+  id: number,
+  input: DatastoreConnectionInput
+): DatastoreConnection {
+  const current = getDatastoreConnection(id);
+  if (!current) throw new Error("连接不存在");
+  const name = validateDatastoreInput(input);
+  const { password, extraJson } = keepMaskedSecrets(input, current);
+
+  getDb()
+    .prepare(
+      `UPDATE datastore_connections
+       SET name = ?, type = ?, uri = ?, username = ?, password = ?, extra_json = ?,
+           env = ?, mode = ?, updated_at = ?
+       WHERE id = ?`
+    )
+    .run(
+      name,
+      input.type,
+      input.uri.trim(),
+      input.username ?? "",
+      password,
+      extraJson,
+      input.env,
+      input.mode ?? current.mode,
+      new Date().toISOString(),
+      id
+    );
+  return maskDatastoreConn(getDatastoreConnection(id)!);
+}
+
+/** 删除连接。 */
+export function deleteDatastoreConnection(id: number): void {
+  getDb().prepare("DELETE FROM datastore_connections WHERE id = ?").run(id);
 }

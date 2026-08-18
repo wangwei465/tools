@@ -2160,3 +2160,297 @@ code, pre {
 .crypto-verdict.fail {
   background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.25); color: var(--warn);
 }
+
+/* ============================================================
+   数据源 · Elasticsearch / MongoDB（app/datastore/page.tsx + components/datastore/*）
+   ============================================================ */
+.ds-page {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 14px 18px 16px; height: calc(100vh - 48px); overflow: hidden;
+}
+.ds-header { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.ds-title { font-size: 16px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.ds-spacer { flex: 1; }
+.ds-views { display: flex; gap: 2px; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.ds-view-tab {
+  padding: 5px 16px; border: none; background: transparent; color: var(--text-muted);
+  font-size: 13px; transition: background 0.15s, color 0.15s;
+}
+.ds-view-tab:hover:not(:disabled) { background: rgba(255,255,255,0.05); color: var(--text); }
+.ds-view-tab.active { background: var(--accent); color: #fff; font-weight: 500; }
+.ds-view-tab:disabled { opacity: 0.4; cursor: not-allowed; }
+.ds-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.ds-empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; color: var(--text-muted); font-size: 14px;
+}
+
+/* 按钮 */
+.ds-btn-primary {
+  border: 1px solid var(--accent); background: var(--accent); color: #fff;
+  border-radius: 6px; padding: 6px 18px; font-size: 12.5px; cursor: pointer;
+}
+.ds-btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.ds-btn-ghost {
+  border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+  border-radius: 6px; padding: 5px 14px; font-size: 12.5px; cursor: pointer;
+}
+.ds-btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
+.ds-btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+.ds-btn-ghost-danger {
+  border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+  border-radius: 6px; padding: 5px 14px; font-size: 12.5px; cursor: pointer;
+}
+.ds-btn-ghost-danger:hover:not(:disabled) { color: var(--error); border-color: var(--error); }
+.ds-btn-danger {
+  border: 1px solid var(--error); background: var(--error); color: #fff;
+  border-radius: 6px; padding: 6px 16px; font-size: 12.5px; cursor: pointer;
+}
+.ds-btn-danger:hover { opacity: 0.88; }
+.ds-btn-ghost-sm {
+  padding: 3px 10px; border-radius: 5px; font-size: 12px; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+}
+.ds-btn-ghost-sm:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
+.ds-btn-ghost-sm:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* 连接选择条 + 徽标（env-* / mode-* / badge-type 与 Redis 侧共用同一套配色类） */
+.ds-connbar { display: flex; align-items: center; gap: 8px; }
+.ds-conn-select, .ds-method-select {
+  padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg-input); color: var(--text); font-size: 12.5px;
+}
+.ds-conn-select { min-width: 150px; }
+.ds-method-select { min-width: 84px; }
+.ds-conn-select:focus, .ds-method-select:focus { outline: none; border-color: var(--accent); }
+.ds-badge {
+  padding: 2px 9px; border-radius: 11px; font-size: 11px; font-weight: 600;
+  white-space: nowrap; letter-spacing: 0.02em;
+}
+
+/* 弹窗（连接管理 / 危险操作确认共用） */
+.ds-modal-mask {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+}
+.ds-modal {
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 16px 50px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;
+}
+.ds-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+}
+.ds-modal-title { font-size: 15px; font-weight: 600; color: var(--text); }
+.ds-modal-close { border: none; background: transparent; color: var(--text-muted); font-size: 14px; }
+.ds-modal-close:hover { color: var(--text); }
+
+/* 连接管理 */
+.ds-connmgr { width: 760px; max-width: 94vw; max-height: 88vh; }
+.ds-connmgr-body { display: flex; min-height: 0; }
+.ds-connmgr-list {
+  width: 200px; flex-shrink: 0; border-right: 1px solid var(--border);
+  padding: 10px; display: flex; flex-direction: column; gap: 3px; overflow-y: auto;
+}
+.ds-connmgr-new {
+  padding: 6px; border: 1px dashed var(--border); border-radius: 6px; background: transparent;
+  color: var(--text-muted); font-size: 12.5px; margin-bottom: 4px;
+}
+.ds-connmgr-new:hover { color: var(--text); border-color: var(--accent); }
+.ds-connmgr-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 12.5px; color: var(--text);
+}
+.ds-connmgr-item:hover { background: rgba(255,255,255,0.04); }
+.ds-connmgr-item.active { background: rgba(91,124,250,0.14); }
+.ds-connmgr-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-connmgr-empty { color: var(--text-muted); font-size: 12px; padding: 8px; }
+.ds-connmgr-form {
+  flex: 1; padding: 14px 18px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
+}
+.ds-connmgr-actions { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
+.ds-del-hint { font-size: 12px; color: var(--warn); }
+
+/* 表单字段 */
+.ds-field { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+.ds-field > label { font-size: 12px; color: var(--text-muted); }
+.ds-field input, .ds-field select {
+  padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg-input); color: var(--text); font-size: 12.5px; width: 100%;
+}
+.ds-field input:focus, .ds-field select:focus { outline: none; border-color: var(--accent); }
+.ds-field-row { display: flex; gap: 10px; }
+.ds-form-error {
+  padding: 6px 10px; border-radius: 6px; background: rgba(255,85,85,0.08);
+  border: 1px solid rgba(255,85,85,0.2); color: var(--error); font-size: 12.5px;
+}
+.ds-test-msg { padding: 6px 10px; border-radius: 6px; font-size: 12.5px; }
+.ds-test-msg.ok { background: rgba(62,207,142,0.08); border: 1px solid rgba(62,207,142,0.25); color: var(--success); }
+.ds-test-msg.err { background: rgba(255,85,85,0.08); border: 1px solid rgba(255,85,85,0.2); color: var(--error); }
+.ds-hint { font-size: 11.5px; color: var(--text-muted); }
+
+/* 共享碎片：错误条 / 空状态 / 提示条 / 过滤框 / 分页 */
+.ds-error {
+  display: flex; align-items: center; gap: 10px; margin: 6px 0;
+  padding: 6px 10px; border-radius: 6px; background: rgba(255,85,85,0.08);
+  border: 1px solid rgba(255,85,85,0.2); color: var(--error); font-size: 12.5px;
+}
+.ds-error-text { flex: 1; word-break: break-word; }
+.ds-empty-state {
+  padding: 24px; text-align: center; color: var(--text-muted); font-size: 12.5px;
+}
+.ds-hintbar {
+  padding: 5px 10px; border-radius: 6px; background: rgba(245,166,35,0.08);
+  border: 1px solid rgba(245,166,35,0.22); color: var(--warn); font-size: 12px;
+}
+.ds-filter-input {
+  flex: 1; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg-input); color: var(--text); font-size: 12.5px;
+}
+.ds-filter-input:focus { outline: none; border-color: var(--accent); }
+.ds-pager { display: flex; align-items: center; gap: 8px; }
+.ds-pager-info { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.ds-pager-size {
+  padding: 3px 8px; border-radius: 5px; border: 1px solid var(--border);
+  background: var(--bg-input); color: var(--text); font-size: 12px;
+}
+
+/* 危险操作确认 */
+.ds-confirm { width: 520px; max-width: 92vw; }
+.ds-confirm-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.ds-confirm-op {
+  padding: 10px 12px; border-radius: 6px; background: var(--bg-input);
+  border: 1px solid var(--border); color: var(--text);
+  font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px;
+  max-height: 30vh; overflow: auto; white-space: pre-wrap; word-break: break-all;
+}
+.ds-confirm-body p { display: flex; align-items: center; gap: 8px; color: var(--text-muted); }
+.ds-confirm-body b { color: var(--text); }
+.ds-confirm-warn { color: var(--warn) !important; }
+.ds-confirm-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 18px; border-top: 1px solid var(--border);
+}
+
+/* 目录浏览：左列表 + 右详情 */
+.ds-catalog { flex: 1; min-height: 0; display: flex; gap: 12px; }
+.ds-list-pane {
+  width: 340px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg-surface); padding: 10px;
+}
+.ds-list-toolbar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.ds-list { flex: 1; min-height: 0; overflow-y: auto; margin-top: 8px; }
+.ds-list-footer {
+  flex-shrink: 0; padding-top: 8px; border-top: 1px solid var(--border);
+  font-size: 11.5px; color: var(--text-muted);
+}
+.ds-index-row, .ds-coll-row {
+  display: flex; align-items: center; gap: 8px; padding: 5px 8px;
+  border-radius: 6px; cursor: pointer; font-size: 12.5px; color: var(--text);
+}
+.ds-index-row:hover, .ds-coll-row:hover { background: rgba(255,255,255,0.04); }
+.ds-index-row.active, .ds-coll-row.active { background: rgba(91,124,250,0.14); }
+.ds-index-name, .ds-coll-name {
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ds-index-docs, .ds-index-size, .ds-coll-meta {
+  font-size: 11.5px; color: var(--text-muted); white-space: nowrap;
+}
+.ds-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.ds-health-green { background: var(--success); }
+.ds-health-yellow { background: var(--warn); }
+.ds-health-red { background: var(--error); }
+.ds-health-unknown { background: var(--text-muted); }
+
+.ds-detail-pane {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg-surface); padding: 10px;
+}
+.ds-detail-header { display: flex; align-items: baseline; gap: 8px; flex-shrink: 0; }
+.ds-detail-title { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.ds-detail-sub { font-size: 11.5px; color: var(--text-muted); }
+.ds-detail-body { flex: 1; min-height: 0; overflow: auto; margin-top: 8px; }
+.ds-detail-section { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+.ds-detail-section-title {
+  font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;
+}
+
+/* 字段树 / 字段行 */
+.ds-field-row-item {
+  display: flex; align-items: center; gap: 8px; padding: 3px 8px;
+  font-size: 12.5px; color: var(--text); border-radius: 5px;
+}
+.ds-field-row-item.branch { cursor: pointer; }
+.ds-field-row-item:hover { background: rgba(255,255,255,0.03); }
+.ds-caret { width: 12px; color: var(--text-muted); font-size: 10px; flex-shrink: 0; }
+.ds-field-name {
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px;
+}
+.ds-field-type {
+  font-size: 11px; color: var(--accent); background: rgba(91,124,250,0.12);
+  padding: 1px 7px; border-radius: 9px; white-space: nowrap;
+}
+.ds-field-types { display: flex; gap: 4px; flex-wrap: wrap; }
+.ds-field-count { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+
+/* 查询台 */
+.ds-console { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.ds-console-bar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.ds-path-input {
+  flex: 1; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg-input); color: var(--text); font-size: 12.5px;
+  font-family: "JetBrains Mono", Consolas, monospace;
+}
+.ds-path-input:focus { outline: none; border-color: var(--accent); }
+.ds-console-editor {
+  height: 26vh; min-height: 140px; flex-shrink: 0;
+  border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+}
+.ds-console-editor .cm-editor, .ds-console-editor .cm-scroller { height: 100%; }
+.ds-console-inputs { display: flex; gap: 8px; flex-shrink: 0; }
+.ds-console-input-col { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ds-console-input-col > label { font-size: 11.5px; color: var(--text-muted); }
+.ds-console-input-col .ds-console-editor { height: 18vh; min-height: 96px; }
+.ds-console-meta { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.ds-meta-item { font-size: 12px; color: var(--text-muted); }
+.ds-meta-item b { color: var(--text); font-weight: 600; }
+.ds-meta-sub { color: var(--text-muted); margin-left: 4px; }
+.ds-console-result {
+  flex: 1; min-height: 0; border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden; display: flex;
+}
+
+/* 结果面板：JSON / 表格双视图 */
+.ds-result { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ds-result-toolbar {
+  display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+  border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--bg-surface);
+}
+.ds-seg-btn {
+  padding: 3px 12px; border-radius: 5px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-muted); font-size: 12px;
+}
+.ds-seg-btn:hover { color: var(--text); }
+.ds-seg-btn.active { background: rgba(91,124,250,0.16); color: var(--accent); border-color: var(--accent); }
+.ds-result-count { font-size: 11.5px; color: var(--text-muted); }
+.ds-result-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.ds-result-body .cm-editor, .ds-result-body .cm-scroller { height: 100%; }
+.ds-table-wrap { flex: 1; min-height: 0; overflow: auto; }
+.ds-table { border-collapse: collapse; font-size: 12px; width: max-content; min-width: 100%; }
+.ds-table th, .ds-table td {
+  border: 1px solid var(--border); padding: 4px 10px; text-align: left;
+  max-width: 320px; vertical-align: top;
+}
+.ds-table th {
+  position: sticky; top: 0; z-index: 1; background: var(--bg-surface);
+  color: var(--text-muted); font-weight: 600; white-space: nowrap;
+}
+.ds-cell-text { word-break: break-word; }
+.ds-cell-null { color: var(--text-muted); font-style: italic; }
+.ds-cell-nested > summary { cursor: pointer; color: var(--accent); font-size: 11.5px; }
+.ds-cell-nested > pre {
+  margin-top: 4px; padding: 6px; border-radius: 5px; background: var(--bg-input);
+  font-size: 11.5px; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-all;
+}
