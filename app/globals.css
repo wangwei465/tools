@@ -2454,3 +2454,160 @@ code, pre {
   margin-top: 4px; padding: 6px; border-radius: 5px; background: var(--bg-input);
   font-size: 11.5px; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-all;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   编码转换：新增转换器的补充样式
+   ───────────────────────────────────────────────────────────── */
+
+/* 置位解读（进制运算） */
+.conv-bit-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.conv-bit-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--bg-surface); font-size: 11.5px; color: var(--text-muted);
+}
+.conv-bit-chip b { color: var(--text); font-weight: 500; }
+.conv-bit-weight { font-family: "JetBrains Mono", Consolas, monospace; color: var(--accent); }
+
+/* Cron 字段描述 */
+.conv-cron-fields { display: flex; flex-direction: column; gap: 4px; }
+.conv-cron-field {
+  display: grid; grid-template-columns: 70px 90px 1fr; gap: 12px; align-items: center;
+  padding: 6px 12px; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);
+}
+.conv-cron-fname { font-size: 12px; color: var(--text-muted); }
+.conv-cron-fexpr { font-size: 12.5px; color: var(--accent); word-break: break-all; }
+.conv-cron-fdesc { font-size: 12.5px; color: var(--text); }
+
+/* Cron 执行时间列表 */
+.conv-cron-next { display: flex; flex-direction: column; gap: 3px; max-height: 320px; overflow: auto; }
+.conv-cron-row {
+  display: grid; grid-template-columns: 34px 1fr 1fr; gap: 12px; align-items: center;
+  padding: 5px 12px; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);
+}
+.conv-cron-idx { font-size: 11px; color: var(--text-muted); }
+.conv-cron-local { font-size: 12.5px; color: var(--text); }
+.conv-cron-iso { font-size: 12px; color: var(--text-muted); }
+
+/* 逐字符编码表 */
+.conv-char-table-wrap {
+  max-height: 400px; overflow: auto;
+  border: 1px solid var(--border); border-radius: 8px;
+}
+.conv-char-table {
+  border-collapse: collapse; width: max-content; min-width: 100%;
+  font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px;
+}
+.conv-char-table th, .conv-char-table td {
+  border-bottom: 1px solid var(--border); padding: 5px 12px; text-align: left; white-space: nowrap;
+}
+.conv-char-table th {
+  position: sticky; top: 0; z-index: 1; background: var(--bg-surface);
+  color: var(--text-muted); font-weight: 600; font-size: 11px;
+}
+.conv-char-table td { color: var(--text-muted); }
+.conv-char-cell { color: var(--text); font-size: 14px; }
+
+/* 乱码还原候选 */
+.conv-restore-list { display: flex; flex-direction: column; gap: 8px; }
+.conv-restore-item {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 12px; border-radius: 8px; background: var(--bg-surface); border: 1px solid var(--border);
+}
+.conv-restore-head { display: flex; align-items: center; gap: 10px; }
+.conv-restore-label { font-size: 12px; color: var(--text-muted); flex: 1; }
+.conv-restore-score { font-size: 11.5px; color: var(--success); }
+.conv-restore-lossy {
+  padding: 1px 8px; border-radius: 10px; font-size: 11px;
+  background: rgba(245,166,35,0.12); color: var(--warn); border: 1px solid rgba(245,166,35,0.3);
+}
+.conv-restore-text { font-size: 13px; color: var(--text); word-break: break-all; }
+
+/* ─────────────────────────────────────────────────────────────
+   SQL 工具
+   ───────────────────────────────────────────────────────────── */
+
+.sqlk-page {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 20px; height: calc(100vh - 48px); overflow: hidden;
+}
+.sqlk-header { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+.sqlk-title { font-size: 17px; font-weight: 600; color: var(--text); }
+.sqlk-desc { font-size: 12.5px; color: var(--text-muted); }
+
+.sqlk-tabs {
+  display: flex; gap: 4px; flex-shrink: 0; overflow-x: auto;
+  border-bottom: 1px solid var(--border); padding-bottom: 2px;
+}
+.sqlk-tab {
+  padding: 6px 16px; border: 1px solid transparent; border-radius: 7px;
+  background: transparent; color: var(--text-muted); font-size: 13px; white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+.sqlk-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.sqlk-tab.active { color: #fff; background: var(--accent); font-weight: 500; }
+.sqlk-body { flex: 1; min-height: 0; overflow: auto; }
+
+/* 面板外框 */
+.sqlk-frame { display: flex; flex-direction: column; gap: 12px; max-width: 1000px; }
+.sqlk-frame-head { display: flex; flex-direction: column; gap: 3px; }
+.sqlk-frame-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.sqlk-frame-desc { font-size: 12px; color: var(--text-muted); }
+
+/* 工具条与选项 */
+.sqlk-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.sqlk-inline-field { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); }
+.sqlk-check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); cursor: pointer; }
+.sqlk-check input { accent-color: var(--accent); }
+.sqlk-seg { display: flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.sqlk-seg-btn {
+  padding: 5px 14px; border: none; background: transparent; color: var(--text-muted);
+  font-size: 12.5px; white-space: nowrap; transition: background 0.15s, color 0.15s;
+}
+.sqlk-seg-btn:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.sqlk-seg-btn.active { background: var(--accent); color: #fff; font-weight: 500; }
+
+/* 字段 */
+.sqlk-field { display: flex; flex-direction: column; gap: 6px; }
+.sqlk-labelrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sqlk-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.sqlk-input {
+  padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg-input); color: var(--text); font-size: 13px;
+}
+.sqlk-input:focus { outline: none; border-color: var(--accent); }
+.sqlk-mono { font-family: "JetBrains Mono", Consolas, monospace; }
+.sqlk-textarea {
+  min-height: 110px; resize: vertical; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg-input); color: var(--text);
+  font-family: "JetBrains Mono", Consolas, monospace; font-size: 12.5px; line-height: 1.5; width: 100%;
+}
+.sqlk-textarea:focus { outline: none; border-color: var(--accent); }
+.sqlk-textarea[readonly] { color: var(--text-muted); }
+
+/* 按钮 / 提示条 */
+.sqlk-btn-primary {
+  padding: 6px 18px; border-radius: 6px; border: 1px solid var(--accent);
+  background: var(--accent); color: #fff; font-size: 12.5px; font-weight: 500;
+}
+.sqlk-btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.sqlk-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.sqlk-copy {
+  padding: 3px 12px; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--text); font-size: 12px; transition: border-color 0.15s;
+}
+.sqlk-copy:hover:not(:disabled) { border-color: var(--accent); }
+.sqlk-copy:disabled { opacity: 0.4; cursor: not-allowed; }
+.sqlk-error {
+  padding: 6px 10px; border-radius: 6px; background: rgba(255,85,85,0.08);
+  border: 1px solid rgba(255,85,85,0.2); color: var(--error); font-size: 12.5px;
+}
+.sqlk-notice {
+  padding: 6px 10px; border-radius: 6px; background: rgba(245,166,35,0.08);
+  border: 1px solid rgba(245,166,35,0.25); color: var(--warn); font-size: 12px;
+}
+.sqlk-notice strong { color: var(--warn); }
+.sqlk-notice code {
+  padding: 0 4px; border-radius: 3px; background: rgba(255,255,255,0.06);
+  font-family: "JetBrains Mono", Consolas, monospace;
+}

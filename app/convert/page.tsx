@@ -9,6 +9,10 @@ import { UuidConverter } from "@/components/convert/UuidConverter";
 import { JwtConverter } from "@/components/convert/JwtConverter";
 import { RegexConverter } from "@/components/convert/RegexConverter";
 import { JsonPathConverter } from "@/components/convert/JsonPathConverter";
+import { IdConverter } from "@/components/convert/IdConverter";
+import { RadixConverter } from "@/components/convert/RadixConverter";
+import { CronConverter } from "@/components/convert/CronConverter";
+import { CharsetConverter } from "@/components/convert/CharsetConverter";
 
 /** 转换器注册表：新增转换器只需在此追加一条并提供组件。 */
 const TABS = [
@@ -20,6 +24,10 @@ const TABS = [
   { key: "jwt", label: "JWT", Comp: JwtConverter },
   { key: "regex", label: "正则", Comp: RegexConverter },
   { key: "jsonpath", label: "JSONPath", Comp: JsonPathConverter },
+  { key: "id", label: "ID 解析", Comp: IdConverter },
+  { key: "radix", label: "进制运算", Comp: RadixConverter },
+  { key: "cron", label: "Cron", Comp: CronConverter },
+  { key: "charset", label: "编码排查", Comp: CharsetConverter },
 ] as const;
 
 /**
