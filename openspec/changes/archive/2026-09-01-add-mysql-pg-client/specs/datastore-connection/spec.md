@@ -1,8 +1,10 @@
-# datastore-connection Specification
+## RENAMED Requirements
 
-## Purpose
-TBD - created by archiving change add-es-mongo-client. Update Purpose after archive.
-## Requirements
+- FROM: `### Requirement: 两类数据源的连接配置`
+- TO: `### Requirement: 多类数据源的连接配置`
+
+## MODIFIED Requirements
+
 ### Requirement: 连接的增删改查
 
 系统 SHALL 提供数据源连接的新增、编辑、删除与列表能力，连接配置 SHALL 使用 SQLite 持久化，页面刷新或重启后仍然可用。
@@ -61,39 +63,6 @@ TBD - created by archiving change add-es-mongo-client. Update Purpose after arch
 - **WHEN** 系统保存一个关系型连接
 - **THEN** 该连接复用既有的连接表与列，不引入新的表或列
 
-### Requirement: 连通性测试
-
-系统 SHALL 提供连接测试能力，在保存前或保存后验证目标可达，测试失败 SHALL 返回可读的失败原因。
-
-#### Scenario: 测试成功
-
-- **WHEN** 用户对配置正确的连接点击「测试」
-- **THEN** 系统返回成功，并展示目标服务的版本信息
-
-#### Scenario: 关系型连接测试
-
-- **WHEN** 用户对配置正确的 MySQL 或 PostgreSQL 连接点击「测试」
-- **THEN** 系统返回成功，并展示该数据库的版本信息
-
-#### Scenario: 测试失败
-
-- **WHEN** 目标地址不可达或认证失败
-- **THEN** 系统展示可读的失败原因（如连接超时、认证失败），不抛出未捕获异常
-
-### Requirement: 环境标签与读写模式
-
-每个连接 SHALL 带有环境标签（local / test / prod）与读写模式（rw / readonly），环境标签 SHALL 在界面上可辨识，读写模式 SHALL 作为服务端拦截写操作的依据。
-
-#### Scenario: 生产连接可辨识
-
-- **WHEN** 某连接的环境标签为 prod
-- **THEN** 连接选择器以显著样式标示该连接
-
-#### Scenario: 只读连接拦截写操作
-
-- **WHEN** 用户在 mode 为 readonly 的连接上执行写操作
-- **THEN** 系统拒绝执行并说明该连接为只读模式
-
 ### Requirement: 凭证脱敏与服务端连接复用
 
 连接列表接口返回的密码类字段 SHALL 脱敏；MongoDB 客户端与关系型数据源的连接池 SHALL 在服务端按连接复用，MUST NOT 每请求新建。
@@ -123,3 +92,21 @@ TBD - created by archiving change add-es-mongo-client. Update Purpose after arch
 - **WHEN** 某个关系型连接的目标曾短暂不可达，导致池中连接失效
 - **THEN** 服务端在下次操作时剔除失效连接并重建，不长期返回由失效连接产生的误导性错误
 
+### Requirement: 连通性测试
+
+系统 SHALL 提供连接测试能力，在保存前或保存后验证目标可达，测试失败 SHALL 返回可读的失败原因。
+
+#### Scenario: 测试成功
+
+- **WHEN** 用户对配置正确的连接点击「测试」
+- **THEN** 系统返回成功，并展示目标服务的版本信息
+
+#### Scenario: 关系型连接测试
+
+- **WHEN** 用户对配置正确的 MySQL 或 PostgreSQL 连接点击「测试」
+- **THEN** 系统返回成功，并展示该数据库的版本信息
+
+#### Scenario: 测试失败
+
+- **WHEN** 目标地址不可达或认证失败
+- **THEN** 系统展示可读的失败原因（如连接超时、认证失败），不抛出未捕获异常
