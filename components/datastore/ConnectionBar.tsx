@@ -13,6 +13,8 @@ export const ENV_META: Record<DatastoreEnv, { label: string; cls: string }> = {
 export const TYPE_LABEL: Record<DatastoreType, string> = {
   es: "Elasticsearch",
   mongo: "MongoDB",
+  mysql: "MySQL",
+  postgres: "PostgreSQL",
 };
 
 interface Props {

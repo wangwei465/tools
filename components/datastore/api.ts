@@ -15,6 +15,9 @@ import type {
   MongoDatabaseInfo,
   MongoFieldSampleResult,
   MongoIndexInfo,
+  RdbExecResult,
+  RdbTableDetail,
+  RdbTableInfo,
 } from "@/lib/datastore/types";
 
 async function req<T>(url: string, method: string, body?: unknown): Promise<T> {
@@ -63,6 +66,13 @@ export interface MongoQueryInput {
   limit?: number;
   pipeline?: unknown;
   update?: unknown;
+  confirm?: boolean;
+}
+
+/** 关系型查询台入参：一次一条 SQL，多语句由服务端拒绝。 */
+export interface RdbQueryInput {
+  connId: number;
+  sql: string;
   confirm?: boolean;
 }
 
@@ -148,6 +158,37 @@ export const datastoreApi = {
     );
   },
 
+  /* ─── 关系型目录（按层懒加载）───────────────── */
+
+  rdbDatabases(connId: number) {
+    return post<{ ok: boolean; databases?: string[]; error?: string }>(
+      "/api/datastore/catalog",
+      { connId, kind: "rdbDatabases" }
+    );
+  },
+
+  rdbSchemas(connId: number, db: string) {
+    return post<{ ok: boolean; schemas?: string[]; error?: string }>("/api/datastore/catalog", {
+      connId,
+      kind: "rdbSchemas",
+      db,
+    });
+  },
+
+  rdbTables(connId: number, db: string, schema: string) {
+    return post<{ ok: boolean; tables?: RdbTableInfo[]; error?: string }>(
+      "/api/datastore/catalog",
+      { connId, kind: "rdbTables", db, schema }
+    );
+  },
+
+  rdbTable(connId: number, db: string, schema: string, table: string) {
+    return post<{ ok: boolean; detail?: RdbTableDetail; error?: string }>(
+      "/api/datastore/catalog",
+      { connId, kind: "rdbTable", db, schema, table }
+    );
+  },
+
   /* ─── 查询台 ───────────────────────────────── */
 
   esQuery(input: EsQueryInput) {
@@ -161,5 +202,12 @@ export const datastoreApi = {
     return post<
       GateEnvelope & { docs?: Array<Record<string, unknown>>; tookMs?: number }
     >("/api/datastore/query", { ...input, kind: "mongo" });
+  },
+
+  rdbQuery(input: RdbQueryInput) {
+    return post<GateEnvelope & { result?: RdbExecResult }>("/api/datastore/query", {
+      ...input,
+      kind: "rdb",
+    });
   },
 };

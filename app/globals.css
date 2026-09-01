@@ -2449,11 +2449,40 @@ code, pre {
 }
 .ds-cell-text { word-break: break-word; }
 .ds-cell-null { color: var(--text-muted); font-style: italic; }
+/* 空串与 NULL 必须一眼可分：排查时「字段有没有写进去」全靠这个区分 */
+.ds-cell-empty { color: var(--text-muted); font-size: 11px; opacity: 0.7; }
 .ds-cell-nested > summary { cursor: pointer; color: var(--accent); font-size: 11.5px; }
 .ds-cell-nested > pre {
   margin-top: 4px; padding: 6px; border-radius: 5px; background: var(--bg-input);
   font-size: 11.5px; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-all;
 }
+
+/* 关系型：目录树条目与表结构 */
+.ds-rdb-kind {
+  flex-shrink: 0; padding: 1px 6px; border-radius: 4px; font-size: 10.5px;
+  border: 1px solid var(--border); color: var(--text-muted);
+}
+.ds-rdb-kind.view { color: var(--warn); border-color: rgba(245,166,35,0.3); }
+.ds-rdb-pk {
+  margin-right: 6px; padding: 0 5px; border-radius: 4px; font-size: 10px;
+  background: rgba(91,124,250,0.16); color: var(--accent);
+}
+.ds-rdb-cols { width: 100%; }
+.ds-rdb-cols td { color: var(--text-muted); }
+.ds-rdb-cols td .ds-field-name { color: var(--text); }
+
+/* 查询台：实际执行的 SQL 回显 */
+.ds-executed-sql {
+  padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,0.06);
+  font-family: "JetBrains Mono", Consolas, monospace; word-break: break-all;
+}
+
+/* 连接管理：SSL 等开关 */
+.ds-checkbox {
+  flex: 1; display: flex; align-items: center; gap: 6px;
+  font-size: 12.5px; color: var(--text-muted); cursor: pointer;
+}
+.ds-checkbox input { accent-color: var(--accent); }
 
 /* ─────────────────────────────────────────────────────────────
    编码转换：新增转换器的补充样式

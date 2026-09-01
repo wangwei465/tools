@@ -20,6 +20,7 @@ import {
   type DatastoreMode,
   type DatastoreType,
 } from "@/lib/datastore/types";
+import { BASE_URL_VAR, uniqueName } from "@/lib/api-client/openapi/types";
 
 export interface TokenConfig {
   headerName: string;
@@ -565,6 +566,102 @@ export function deleteNodeCascade(id: number): void {
        DELETE FROM api_nodes WHERE id IN (SELECT id FROM sub)`
     )
     .run(id);
+}
+
+/* ─── 接口调试·OpenAPI 批量导入（api-openapi-import ④b）──── */
+
+export interface ImportCollectionInput {
+  /** 根文件夹基名；重名消解在事务内进行。 */
+  rootName: string;
+  groups: Array<{ name: string; requests: Array<{ name: string; definition: RequestDraft }> }>;
+  environments: Array<{ name: string; baseUrl: string }>;
+}
+
+export interface ImportCollectionResult {
+  rootId: number;
+  rootName: string;
+  /** 根文件夹重名，实际新建了副本（不合并既有集合）。 */
+  rootIsCopy: boolean;
+  folders: number;
+  requests: number;
+  environments: Array<{ id: number; name: string; renamedFrom: string | null }>;
+}
+
+/**
+ * 一次导入的全部文件夹、请求节点、环境与变量在单事务内写入，任一步失败整体回滚。
+ *
+ * 重名消解放在事务内而非调用方：读既有名称与插入必须原子，否则并发下会撞名。
+ * 既有的同名根文件夹与环境 MUST NOT 被改动——一律新建带后缀的副本。
+ * 复用既有 `api_nodes` / `api_environments` / `api_variables` 表，无表结构变动。
+ */
+export function importCollection(input: ImportCollectionInput): ImportCollectionResult {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  const insertNode = db.prepare(
+    `INSERT INTO api_nodes (parent_id, type, name, sort_order, definition, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  );
+  const insertEnv = db.prepare("INSERT INTO api_environments (name, is_active) VALUES (?, 0)");
+  const insertVar = db.prepare(
+    "INSERT INTO api_variables (env_id, key, value, enabled) VALUES (?, ?, ?, 1)"
+  );
+
+  const tx = db.transaction((data: ImportCollectionInput): ImportCollectionResult => {
+    const rootNames = (
+      db.prepare("SELECT name FROM api_nodes WHERE parent_id IS NULL").all() as Array<{
+        name: string;
+      }>
+    ).map((r) => r.name);
+    const rootName = uniqueName(data.rootName, rootNames);
+
+    const { nextOrder } = db
+      .prepare(
+        "SELECT COALESCE(MAX(sort_order), -1) + 1 AS nextOrder FROM api_nodes WHERE parent_id IS NULL"
+      )
+      .get() as { nextOrder: number };
+
+    const rootId = Number(
+      insertNode.run(null, "folder", rootName, nextOrder, "", now, now).lastInsertRowid
+    );
+
+    let folders = 1;
+    let requests = 0;
+    data.groups.forEach((g, gi) => {
+      const groupId = Number(
+        insertNode.run(rootId, "folder", g.name, gi, "", now, now).lastInsertRowid
+      );
+      folders++;
+      g.requests.forEach((r, ri) => {
+        insertNode.run(groupId, "request", r.name, ri, JSON.stringify(r.definition), now, now);
+        requests++;
+      });
+    });
+
+    const envNames = new Set(
+      (db.prepare("SELECT name FROM api_environments").all() as Array<{ name: string }>).map(
+        (r) => r.name
+      )
+    );
+    const environments = data.environments.map((e) => {
+      const name = uniqueName(e.name, envNames);
+      envNames.add(name);
+      const id = Number(insertEnv.run(name).lastInsertRowid);
+      insertVar.run(id, BASE_URL_VAR, e.baseUrl);
+      return { id, name, renamedFrom: name === e.name ? null : e.name };
+    });
+
+    return {
+      rootId,
+      rootName,
+      rootIsCopy: rootName !== data.rootName,
+      folders,
+      requests,
+      environments,
+    };
+  });
+
+  return tx(input);
 }
 
 /* ─── 接口调试·请求历史（api_history，②）─────────────────── */
