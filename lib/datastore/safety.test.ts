@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { classifyEsOperation, classifyMongoOperation, gateOperation } from "./safety";
+import {
+  classifyEsOperation,
+  classifyMongoOperation,
+  classifySqlOperation,
+  gateOperation,
+} from "./safety";
 
 describe("classifyEsOperation", () => {
   describe("只读", () => {
@@ -189,5 +194,65 @@ describe("gateOperation", () => {
     });
     expect(r.allowed).toBe(false);
     expect(r.blocked).toBe("readonly");
+  });
+
+  // SQL 侧：分类实现在 sql-classify.ts，此处只验证它接进同一套闸门后的行为
+  describe("SQL 分支", () => {
+    const sqlRo = { name: "prod-mysql", env: "prod" as const, mode: "readonly" as const };
+    const sqlRw = { name: "local-mysql", env: "local" as const, mode: "rw" as const };
+
+    const gate = (
+      sql: string,
+      conn: typeof sqlRo | typeof sqlRw,
+      confirm?: boolean
+    ) => gateOperation({ cls: classifySqlOperation(sql), conn, description: sql, confirm });
+
+    it("只读连接放行 SELECT", () => {
+      expect(gate("SELECT * FROM t WHERE id = 1", sqlRo).allowed).toBe(true);
+    });
+
+    it("只读连接放行 EXPLAIN", () => {
+      expect(gate("EXPLAIN SELECT * FROM t", sqlRo).allowed).toBe(true);
+    });
+
+    it("只读连接拦截 UPDATE", () => {
+      const r = gate("UPDATE t SET a = 1 WHERE id = 1", sqlRo);
+      expect(r.allowed).toBe(false);
+      expect(r.blocked).toBe("readonly");
+      expect(r.error).toContain("只读模式");
+    });
+
+    it("只读连接拦截 SELECT … FOR UPDATE 并给出解释性文案", () => {
+      const r = gate("SELECT * FROM t WHERE id = 1 FOR UPDATE", sqlRo);
+      expect(r.allowed).toBe(false);
+      expect(r.blocked).toBe("readonly");
+      expect(r.error).toContain("行锁");
+    });
+
+    it("读写连接上带 WHERE 的 UPDATE 无需确认直接放行", () => {
+      expect(gate("UPDATE t SET a = 1 WHERE id = 1", sqlRw).allowed).toBe(true);
+    });
+
+    it("读写连接上无 WHERE 的 DELETE 需确认，弹窗回显完整 SQL", () => {
+      const r = gate("DELETE FROM t", sqlRw);
+      expect(r.allowed).toBe(false);
+      expect(r.needConfirm).toBe(true);
+      expect(r.error).toContain("全部行");
+      expect(r.description).toBe("DELETE FROM t");
+    });
+
+    it("确认后放行无 WHERE 的 DELETE", () => {
+      expect(gate("DELETE FROM t", sqlRw, true).allowed).toBe(true);
+    });
+
+    it("只读连接上无 WHERE 的 DELETE 即便已确认也按只读拦截", () => {
+      const r = gate("DELETE FROM t", sqlRo, true);
+      expect(r.allowed).toBe(false);
+      expect(r.blocked).toBe("readonly");
+    });
+
+    it("DDL 在读写连接上需确认", () => {
+      expect(gate("DROP TABLE t", sqlRw).needConfirm).toBe(true);
+    });
   });
 });

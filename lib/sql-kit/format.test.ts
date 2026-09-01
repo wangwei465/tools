@@ -75,6 +75,17 @@ describe("SQL 压缩", () => {
     expect(minify("   ").ok).toBe(false);
   });
 
+  // 分段器刻意不把 # 当行注释：当成注释会把 #> 之后的语句整段吃掉
+  it("PG 的 #> / #>> JSON 运算符不被当成行注释吃掉", () => {
+    const r = minify("select data #> '{a,b}' as v from t where id = 1");
+    expect(r.value).toBe("select data #> '{a,b}' as v from t where id = 1");
+  });
+
+  it("PG 美元引用内的空白按字面量保留", () => {
+    const r = minify("select $$a  b$$ as s from t");
+    expect(r.value).toBe("select $$a  b$$ as s from t");
+  });
+
   it("压缩结果可再被美化", () => {
     const compact = minify("select\n  a\nfrom t where s = 'x  y'").value!;
     const pretty = beautify(compact, "mysql");

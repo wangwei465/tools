@@ -20,6 +20,7 @@ import { EnvBar } from "@/components/api-client/EnvBar";
 import { EnvManager } from "@/components/api-client/EnvManager";
 import { PreviewDialog } from "@/components/api-client/PreviewDialog";
 import { ImportDialog } from "@/components/api-client/ImportDialog";
+import { OpenApiImportDialog } from "@/components/api-client/OpenApiImportDialog";
 import { CodegenDialog } from "@/components/api-client/CodegenDialog";
 import { buildTree, collectSubtreeIds } from "@/components/api-client/tree";
 import { resolveVars, substituteDraft } from "@/components/api-client/vars";
@@ -43,6 +44,7 @@ export default function ApiClientPage() {
   const [envManagerOpen, setEnvManagerOpen] = useState(false);
   const [preview, setPreview] = useState<{ wire: WireEnvelope; missing: string[] } | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [openApiOpen, setOpenApiOpen] = useState(false);
   const [codegenWire, setCodegenWire] = useState<WireEnvelope | null>(null);
 
   // 请求区/响应区的高度拖动（只受控请求区，响应区 flex: 1 吃掉剩余）
@@ -357,6 +359,13 @@ export default function ApiClientPage() {
               <button className="apic-btn-ghost" onClick={() => setImportOpen(true)} title="粘贴 cURL 导入为新标签页">
                 导入 cURL
               </button>
+              <button
+                className="apic-btn-ghost"
+                onClick={() => setOpenApiOpen(true)}
+                title="粘贴 OpenAPI / Swagger 文档批量导入为集合树"
+              >
+                导入 OpenAPI
+              </button>
               <button className="apic-btn-ghost" onClick={onCodegen} title="生成 curl / fetch 代码">
                 生成代码
               </button>
@@ -415,6 +424,17 @@ export default function ApiClientPage() {
       )}
       {importOpen && (
         <ImportDialog onImport={onImport} onClose={() => setImportOpen(false)} />
+      )}
+      {openApiOpen && (
+        <OpenApiImportDialog
+          nodes={nodesRef.current}
+          environments={state.environments}
+          onImported={() => {
+            reloadTree();
+            reloadEnvVars();
+          }}
+          onClose={() => setOpenApiOpen(false)}
+        />
       )}
       {codegenWire && (
         <CodegenDialog wire={codegenWire} onClose={() => setCodegenWire(null)} />

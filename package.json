@@ -23,7 +23,9 @@
     "js-yaml": "^5.2.2",
     "jsonpath-plus": "^10.4.0",
     "mongodb": "^7.5.0",
+    "mysql2": "^3.24.2",
     "next": "^14.2.5",
+    "pg": "^8.23.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sql-formatter": "^15.8.2"
@@ -32,6 +34,7 @@
     "@types/better-sqlite3": "^7.6.11",
     "@types/diff": "^5.2.1",
     "@types/node": "^20.14.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "typescript": "^5.4.5",

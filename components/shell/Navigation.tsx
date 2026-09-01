@@ -13,6 +13,7 @@ const TOOLS = [
   { href: "/convert", label: "编码转换" },
   { href: "/crypto", label: "加解密" },
   { href: "/sql-kit", label: "SQL 工具" },
+  { href: "/text-kit", label: "文本工具" },
   // 未来工具在此注册
 ] as const;
 

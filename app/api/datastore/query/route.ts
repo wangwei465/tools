@@ -1,24 +1,35 @@
 import { NextResponse } from "next/server";
 import { resolveConnection } from "@/lib/datastore/resolve";
 import { describeEsError, esRequest, parseSearchResponse } from "@/lib/datastore/es";
-import { classifyEsOperation, classifyMongoOperation, gateOperation, type GateResult } from "@/lib/datastore/safety";
+import {
+  classifyEsOperation,
+  classifyMongoOperation,
+  classifySqlOperation,
+  gateOperation,
+  rejectMultiStatement,
+  type GateResult,
+} from "@/lib/datastore/safety";
 import {
   mongoAggregate,
   mongoDeleteMany,
   mongoFind,
   mongoUpdateMany,
 } from "@/lib/datastore/mongo";
-import type { DatastoreConnection } from "@/lib/datastore/types";
+import { describeRdbError, getRdbDriver } from "@/lib/datastore/rdb-driver";
+import { DEFAULT_ROW_LIMIT, HARD_ROW_LIMIT } from "@/lib/datastore/rdb";
+import { isRdbType, type DatastoreConnection } from "@/lib/datastore/types";
 
 /**
  * POST /api/datastore/query → 查询台执行入口
  *
  * ES   { kind:"es",    connId, method, path, body?, confirm? }
  * Mongo{ kind:"mongo", connId, db, collection, op, ...参数, confirm? }
+ * 关系型 { kind:"rdb",  connId, sql, confirm? }
  *
  * 安全闸门（服务端硬编码判定，不信任前端）：
  * - 只读模式 + 写操作 → 拦截（blocked:"readonly"）
  * - 危险操作 + 未确认 → 要求二次确认（needConfirm:true，回传完整操作描述供弹窗回显）
+ * - 关系型多语句 → 在闸门之前直接拒绝（不是「操作性质」问题，而是这次请求根本不该发出）
  *
  * 执行错误原样翻译为可读原因回显（ok:false, error），不视为服务异常，故 HTTP 恒 200。
  */
@@ -41,6 +52,8 @@ interface QueryBody {
   limit?: number;
   pipeline?: unknown;
   update?: unknown;
+  // 关系型
+  sql?: string;
 }
 
 export async function POST(request: Request) {
@@ -63,6 +76,8 @@ export async function POST(request: Request) {
       return runEsQuery(conn, payload);
     case "mongo":
       return runMongoQuery(conn, payload);
+    case "rdb":
+      return runRdbQuery(conn, payload);
     default:
       return NextResponse.json(
         { ok: false, error: `不支持的查询类型：${payload.kind ?? "(空)"}` },
@@ -196,7 +211,49 @@ function describeMongoOperation(
   return `${db}.${collection}.${op}(${argText})`;
 }
 
-/** 闸门拒绝的响应信封（ES 与 Mongo 分支共用）。 */
+/* ─── 关系型（MySQL / PostgreSQL）──────────────────────────── */
+
+/**
+ * 关系型分支：多语句前置拒绝 → 词法分类 → 闸门 → 执行。
+ *
+ * 分类是词法判定而非完整解析，可能被刁钻语句绕过（design.md 决策二），
+ * 故只读连接下驱动还会把语句包进数据库的只读事务里，由数据库自己做最终判定。
+ * 这里的分类只负责「提前给出可读提示」。
+ */
+async function runRdbQuery(conn: DatastoreConnection, payload: QueryBody) {
+  if (!isRdbType(conn.type)) {
+    return NextResponse.json({ ok: false, error: "所选连接不是 MySQL 或 PostgreSQL" });
+  }
+
+  const sql = (payload.sql ?? "").trim();
+  if (!sql) return NextResponse.json({ ok: false, error: "SQL 不能为空" });
+
+  // 多语句在闸门之前拒绝：不做「只执行第一条」这类猜测
+  const multi = rejectMultiStatement(sql);
+  if (multi) return NextResponse.json({ ok: false, error: multi });
+
+  const gate = gateOperation({
+    cls: classifySqlOperation(sql),
+    conn,
+    description: sql,
+    confirm: payload.confirm,
+  });
+  if (!gate.allowed) return NextResponse.json(gateRejection(gate));
+
+  try {
+    const result = await getRdbDriver(conn.type).execute(conn, sql, {
+      readonly: conn.mode === "readonly",
+      rowLimit: DEFAULT_ROW_LIMIT,
+      hardLimit: HARD_ROW_LIMIT,
+    });
+    return NextResponse.json({ ok: true, result });
+  } catch (err) {
+    // 语法错误、超时、只读事务拒绝等已翻译为可读文案，不透出数据库原始堆栈
+    return NextResponse.json({ ok: false, error: describeRdbError(conn.type, err) });
+  }
+}
+
+/** 闸门拒绝的响应信封（ES / Mongo / 关系型共用）。 */
 function gateRejection(gate: GateResult) {
   return {
     ok: false,

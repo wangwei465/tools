@@ -5,13 +5,19 @@
  * - 写操作（write）：只读模式（mode=readonly）下一律拦截。
  * - 危险操作（dangerous）：任何模式下都需二次确认（confirm=true）才放行。
  *
- * 判定规则按数据源各自实现（ES 看 HTTP 方法 + 路径，Mongo 看操作名 + 过滤条件），
- * 但闸门行为统一由 gateOperation 收口。前端传来的操作意图只用于 UI 提示，
- * 不作为放行依据。
+ * 判定规则按数据源各自实现（ES 看 HTTP 方法 + 路径，Mongo 看操作名 + 过滤条件，
+ * 关系型看 SQL 语句的词法结构），但闸门行为统一由 gateOperation 收口。
+ * 前端传来的操作意图只用于 UI 提示，不作为放行依据。
+ *
+ * SQL 侧的判定量大且是自由文本，单独放在 `sql-classify.ts`，此处只做转出——
+ * 调用方无需知道分类实现分了几个文件。多语句拒绝不是「操作性质」问题而是
+ * 「这次请求根本不该发出」，故由调用方在闸门之前前置返回（见 rejectMultiStatement）。
  *
  * 全部为纯函数：不依赖网络与数据库连接，可直接单测。
  */
 import type { DatastoreEnv, DatastoreMode } from "./types";
+
+export { classifySqlOperation, rejectMultiStatement } from "./sql-classify";
 
 /** 操作性质判定结果。dangerous 蕴含 write（危险操作必然改状态）。 */
 export interface OperationClass {

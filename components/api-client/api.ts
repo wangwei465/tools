@@ -1,4 +1,5 @@
 import type { ApiNode, HistoryEntry, NodeType, RequestDraft, ApiEnvironment, ApiVariable } from "./types";
+import type { ImportPayload } from "@/lib/api-client/openapi";
 
 /**
  * 集合 / 历史后端 API 的前端封装（薄封装，统一 JSON 收发）。
@@ -59,6 +60,33 @@ export async function moveNodeApi(
 
 export async function deleteNodeApi(id: number): Promise<void> {
   await jsonFetch(`/api/collections/${id}`, { method: "DELETE" });
+}
+
+/* ─── OpenAPI 批量导入 ─── */
+
+export interface ImportResult {
+  rootId: number;
+  rootName: string;
+  rootIsCopy: boolean;
+  folders: number;
+  requests: number;
+  environments: Array<{ id: number; name: string; renamedFrom: string | null }>;
+}
+
+/** 批量导入：服务端单事务写入，失败整体回滚（此处只透传结果与原因）。 */
+export async function importCollectionApi(
+  payload: ImportPayload
+): Promise<{ ok: true; result: ImportResult } | { ok: false; error: string }> {
+  try {
+    const d = await jsonFetch<{ ok: boolean; result?: ImportResult; error?: string }>(
+      "/api/collections/import",
+      postInit(payload)
+    );
+    if (d.ok && d.result) return { ok: true, result: d.result };
+    return { ok: false, error: d.error ?? "导入失败" };
+  } catch {
+    return { ok: false, error: "导入失败：无法连接后端" };
+  }
 }
 
 /* ─── 请求历史 ─── */

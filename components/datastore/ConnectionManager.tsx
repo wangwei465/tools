@@ -3,12 +3,17 @@
 import { useEffect, useState } from "react";
 import {
   MASKED_SECRET,
+  RDB_DEFAULT_PORT,
+  buildRdbUri,
+  isRdbType,
   parseExtra,
+  parseRdbUri,
   type DatastoreConnection,
   type DatastoreConnectionInput,
   type DatastoreEnv,
   type DatastoreMode,
   type DatastoreType,
+  type RdbType,
 } from "@/lib/datastore/types";
 import { datastoreApi } from "@/components/datastore/api";
 import { ENV_META, TYPE_LABEL } from "@/components/datastore/ConnectionBar";
@@ -20,7 +25,11 @@ interface Props {
   onChanged: () => Promise<DatastoreConnection[]> | void;
 }
 
-/** 表单状态：id 为 null 表示新建。差异化字段（apiKey / authDb）在此拍平便于编辑。 */
+/**
+ * 表单状态：id 为 null 表示新建。
+ * 差异化字段在此拍平便于编辑：apiKey（ES）、authDb（Mongo）、
+ * host/port/database/ssl（关系型——落库时组装回 uri 一列，表结构不变）。
+ */
 interface FormState {
   id: number | null;
   name: string;
@@ -30,6 +39,11 @@ interface FormState {
   password: string;
   apiKey: string; // ES 专有
   authDb: string; // Mongo 专有
+  host: string; // 关系型专有
+  port: string; // 关系型专有（留空取默认端口）
+  database: string; // 关系型专有
+  ssl: boolean; // 关系型专有
+  sslRejectUnauthorized: boolean; // 关系型专有
   env: DatastoreEnv;
   mode: DatastoreMode;
 }
@@ -43,18 +57,35 @@ const BLANK: FormState = {
   password: "",
   apiKey: "",
   authDb: "",
+  host: "127.0.0.1",
+  port: "",
+  database: "",
+  ssl: false,
+  sslRejectUnauthorized: true,
   env: "local",
   mode: "rw",
 };
 
-/** 切换类型时的默认地址：两类数据源的地址形态完全不同，留着上一类的值只会误导。 */
+/** 切换类型时的默认地址：各类数据源的地址形态完全不同，留着上一类的值只会误导。 */
 const DEFAULT_URI: Record<DatastoreType, string> = {
   es: "http://127.0.0.1:9200",
   mongo: "mongodb://127.0.0.1:27017",
+  mysql: "",
+  postgres: "",
 };
 
 function connToForm(c: DatastoreConnection): FormState {
   const extra = parseExtra(c.extraJson);
+  // 关系型的 host/port/database 是从 uri 拆出来的；解析失败时回落空值让用户重填
+  let target = { host: "", port: 0, database: "" };
+  if (isRdbType(c.type)) {
+    try {
+      target = parseRdbUri(c);
+    } catch {
+      /* 保留空值 */
+    }
+  }
+
   return {
     id: c.id,
     name: c.name,
@@ -64,20 +95,39 @@ function connToForm(c: DatastoreConnection): FormState {
     password: c.password, // 已脱敏；保存时原样回传即视为「未修改」
     apiKey: extra.apiKey ?? "",
     authDb: extra.authDb ?? "",
+    host: target.host,
+    port: target.port ? String(target.port) : "",
+    database: target.database,
+    ssl: extra.ssl ?? false,
+    sslRejectUnauthorized: extra.sslRejectUnauthorized ?? true,
     env: c.env,
     mode: c.mode,
   };
 }
 
+/** 各类型只带自己那份差异参数，避免切换类型后残留上一类的配置。 */
+function toExtra(f: FormState) {
+  if (f.type === "es") return { apiKey: f.apiKey };
+  if (f.type === "mongo") return { authDb: f.authDb };
+  return { ssl: f.ssl, sslRejectUnauthorized: f.sslRejectUnauthorized };
+}
+
 function toInput(f: FormState): DatastoreConnectionInput {
-  const extra = f.type === "es" ? { apiKey: f.apiKey } : { authDb: f.authDb };
+  const uri = isRdbType(f.type)
+    ? buildRdbUri(f.type, {
+        host: f.host,
+        port: Number(f.port) || 0,
+        database: f.database,
+      })
+    : f.uri;
+
   return {
     name: f.name,
     type: f.type,
-    uri: f.uri,
+    uri,
     username: f.username,
     password: f.password,
-    extraJson: JSON.stringify(extra),
+    extraJson: JSON.stringify(toExtra(f)),
     env: f.env,
     mode: f.mode,
   };
@@ -137,7 +187,6 @@ export function ConnectionManager({ open, connections, onClose, onChanged }: Pro
     }));
     setTestMsg(null);
   };
-
   // 环境切换：切到生产时自动置只读（可再手动改回）
   const changeEnv = (env: DatastoreEnv) => {
     setForm((f) => ({ ...f, env, mode: env === "prod" ? "readonly" : f.mode }));
@@ -194,6 +243,7 @@ export function ConnectionManager({ open, connections, onClose, onChanged }: Pro
   };
 
   const isEs = form.type === "es";
+  const isRdb = isRdbType(form.type);
   const secretHint = form.id == null ? "" : "留空即清除；不改则保持占位符";
 
   return (
@@ -243,7 +293,7 @@ export function ConnectionManager({ open, connections, onClose, onChanged }: Pro
                   value={form.type}
                   onChange={(e) => changeType(e.target.value as DatastoreType)}
                 >
-                  {(["es", "mongo"] as const).map((t) => (
+                  {(["es", "mongo", "mysql", "postgres"] as const).map((t) => (
                     <option key={t} value={t}>
                       {TYPE_LABEL[t]}
                     </option>
@@ -272,17 +322,49 @@ export function ConnectionManager({ open, connections, onClose, onChanged }: Pro
               </div>
             </div>
 
-            <div className="ds-field">
-              <label>{isEs ? "服务地址" : "连接串"}</label>
-              <input
-                value={form.uri}
-                onChange={(e) => patch({ uri: e.target.value })}
-                placeholder={DEFAULT_URI[form.type]}
-                spellCheck={false}
-              />
-            </div>
+            {/* 类型决定可填字段：关系型填 host/port/库名，其余填单个地址串 */}
+            {isRdb ? (
+              <div className="ds-field-row">
+                <div className="ds-field" style={{ flex: 2 }}>
+                  <label>主机</label>
+                  <input
+                    value={form.host}
+                    onChange={(e) => patch({ host: e.target.value })}
+                    placeholder="127.0.0.1"
+                    spellCheck={false}
+                  />
+                </div>
+                <div className="ds-field">
+                  <label>端口</label>
+                  <input
+                    value={form.port}
+                    onChange={(e) => patch({ port: e.target.value.replace(/\D/g, "") })}
+                    placeholder={String(RDB_DEFAULT_PORT[form.type as RdbType])}
+                    spellCheck={false}
+                  />
+                </div>
+                <div className="ds-field" style={{ flex: 2 }}>
+                  <label>库名</label>
+                  <input
+                    value={form.database}
+                    onChange={(e) => patch({ database: e.target.value })}
+                    placeholder={form.type === "postgres" ? "该连接绑定此库" : "可留空（可列全部库）"}
+                    spellCheck={false}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="ds-field">
+                <label>{isEs ? "服务地址" : "连接串"}</label>
+                <input
+                  value={form.uri}
+                  onChange={(e) => patch({ uri: e.target.value })}
+                  placeholder={DEFAULT_URI[form.type]}
+                  spellCheck={false}
+                />
+              </div>
+            )}
 
-            {/* 类型决定可填字段：不展示另一类型特有的字段 */}
             <div className="ds-field-row">
               <div className="ds-field">
                 <label>用户名</label>
@@ -303,7 +385,27 @@ export function ConnectionManager({ open, connections, onClose, onChanged }: Pro
               </div>
             </div>
 
-            {isEs ? (
+            {isRdb ? (
+              <div className="ds-field-row">
+                <label className="ds-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={form.ssl}
+                    onChange={(e) => patch({ ssl: e.target.checked })}
+                  />
+                  启用 SSL / TLS
+                </label>
+                <label className="ds-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={form.sslRejectUnauthorized}
+                    disabled={!form.ssl}
+                    onChange={(e) => patch({ sslRejectUnauthorized: e.target.checked })}
+                  />
+                  校验服务端证书（自签名证书需关闭）
+                </label>
+              </div>
+            ) : isEs ? (
               <div className="ds-field">
                 <label>API Key（填写后优先于 Basic Auth）</label>
                 <input
